@@ -1,0 +1,60 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-d0094a50bb2071803777.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.30"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "alprog_finpro_kelompok_iman",
+					"targetIndexes" : 
+					[
+						0
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "alprog_finpro_kelompok_iman::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-alprog_finpro_kelompok_iman-Debug-5d4d046d5b9e5caa2636.json",
+					"name" : "alprog_finpro_kelompok_iman",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "C:/Users/kevin/CLionProjects/alprog-finpro-kelompok-iman/cmake-build-debug",
+		"source" : "C:/Users/kevin/CLionProjects/alprog-finpro-kelompok-iman"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 7
+	}
+}

@@ -1,0 +1,3 @@
+C:/Users/kevin/CLionProjects/alprog-finpro-kelompok-iman/cmake-build-debug/CMakeFiles/alprog_finpro_kelompok_iman.dir
+C:/Users/kevin/CLionProjects/alprog-finpro-kelompok-iman/cmake-build-debug/CMakeFiles/edit_cache.dir
+C:/Users/kevin/CLionProjects/alprog-finpro-kelompok-iman/cmake-build-debug/CMakeFiles/rebuild_cache.dir
