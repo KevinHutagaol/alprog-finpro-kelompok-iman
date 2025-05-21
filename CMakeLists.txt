@@ -8,4 +8,7 @@ add_executable(server
 
 
 add_executable(client
-        client/src/main.cpp)
+        client/src/main.cpp
+        client/src/performance_counter.cpp)
+
+target_link_libraries(client PRIVATE -lpdh)
