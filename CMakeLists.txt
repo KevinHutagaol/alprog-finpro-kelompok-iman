@@ -9,6 +9,8 @@ add_executable(server
 
 add_executable(client
         client/src/main.cpp
-        client/src/performance_counter.cpp)
+        client/src/perf_counter/enumerate_processes.cpp
+        client/src/perf_counter/browse_performance_counters.cpp
+        client/src/perf_counter/write_performance_data.cpp)
 
 target_link_libraries(client PRIVATE -lpdh)
