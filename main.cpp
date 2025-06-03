@@ -1,65 +1,85 @@
 #include "wsclient.h"
 #include <iostream>
-#include <chrono>
 #include <thread>
-#include <nlohmann/json.hpp>
-#include <unistd.h> // For gethostname
+#include <chrono>
+#include <ctime>
+#include <iomanip>
+#include <random>
 
-// Simulated function to collect performance metrics
-nlohmann::json collectPerformanceMetrics() {
-    // In a real implementation, this would use system APIs to collect actual metrics
-    nlohmann::json metrics = {
-        {"cpu_usage", rand() % 100},
-        {"memory_usage", rand() % 8192},
-        {"disk_io", {
-            {"read_bps", rand() % 100000},
-            {"write_bps", rand() % 100000}
-        }},
-        {"timestamp", std::chrono::system_clock::now().time_since_epoch().count()}
-    };
+// Example function to simulate getting performance data
+PerformanceData getPerformanceMetrics(const std::string& clientId) {
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+    static std::uniform_real_distribution<> cpuDist(0.0, 100.0);
+    static std::uniform_real_distribution<> memDist(0.0, 32.0); // GB
+    static std::uniform_real_distribution<> ioDist(0.0, 200.0); // MB/s
 
-    return metrics;
+    PerformanceData data;
+    data.cpuUsage = cpuDist(gen);
+    data.memoryUsage = memDist(gen);
+    data.diskIORate = ioDist(gen);
+    data.clientId = clientId;
+
+    // Get current timestamp
+    auto now = std::chrono::system_clock::now();
+    auto time_t_now = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time_t_now), "%Y-%m-%d %H:%M:%S");
+    data.timestamp = ss.str();
+
+    return data;
 }
 
 int main() {
-    // Get hostname for client ID
-    char hostname[256];
-    gethostname(hostname, sizeof(hostname));
-    std::string clientId = std::string(hostname) + "-" + std::to_string(getpid());
+    // Create a unique client ID based on computer name or other identifier
+    std::string clientId = "LabPC-" + std::to_string(std::random_device{}());
 
     // Create WebSocket client
-    PerformanceWSClient client("wss://your-central-server.example.com/metrics", clientId);
+    WSClient client("ws://performance-server.example.com:8080/ws", clientId);
 
-    // Set up callbacks
-    client.setConnectionCallback([](bool connected) {
-        std::cout << "Connection status changed: " << (connected ? "Connected" : "Disconnected") << std::endl;
+    // Set callbacks
+    client.setOnConnectCallback([]() {
+        std::cout << "Connected to server" << std::endl;
     });
 
-    client.setMessageCallback([](const std::string& message) {
+    client.setOnCloseCallback([](int code, const std::string& reason) {
+        std::cout << "Connection closed: " << code << " - " << reason << std::endl;
+    });
+
+    client.setOnMessageCallback([](const std::string& message) {
         std::cout << "Received message: " << message << std::endl;
     });
 
-    client.setErrorCallback([](const std::string& error) {
+    client.setOnErrorCallback([](const std::string& error) {
         std::cerr << "Error: " << error << std::endl;
     });
 
     // Connect to server
     if (!client.connect()) {
-        std::cerr << "Failed to connect initially, but client will retry automatically" << std::endl;
+        std::cerr << "Failed to initiate connection" << std::endl;
     }
 
-    // Send metrics every 10 seconds
+    // Main loop - collect and send performance data every 5 seconds
     while (true) {
-        // Collect metrics
-        auto metrics = collectPerformanceMetrics();
+        try {
+            // Get current performance metrics
+            PerformanceData metrics = getPerformanceMetrics(clientId);
 
-        // Send to server
-        if (!client.sendMetrics(metrics.dump())) {
-            std::cout << "Metrics queued for delivery when connection is restored" << std::endl;
+            // Queue metrics to be sent
+            client.queuePerformanceData(metrics);
+
+            // Debug output
+            std::cout << "Queued metrics - CPU: " << metrics.cpuUsage
+                      << "%, Memory: " << metrics.memoryUsage
+                      << "GB, I/O: " << metrics.diskIORate << "MB/s" << std::endl;
+
+            // Wait for 5 seconds before collecting next batch of metrics
+            std::this_thread::sleep_for(std::chrono::seconds(5));
         }
-
-        // Wait before sending next metrics
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        catch (const std::exception& e) {
+            std::cerr << "Error in main loop: " << e.what() << std::endl;
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
     }
 
     return 0;
