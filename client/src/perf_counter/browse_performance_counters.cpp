@@ -39,7 +39,7 @@ int main() {
     // Create a query.
     //
 
-    Status = PdhOpenQueryW(nullptr, NULL, &Query);
+    Status = PdhOpenQueryW(nullptr, 0, &Query);
     if (Status != ERROR_SUCCESS) {
         wprintf(L"\nPdhOpenQuery failed with status 0x%x.", Status);
         goto Cleanup;
