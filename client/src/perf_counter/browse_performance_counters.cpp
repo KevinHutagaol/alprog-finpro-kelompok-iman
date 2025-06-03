@@ -8,6 +8,7 @@
 #include <string>
 
 
+
 #pragma comment(lib, "pdh.lib")
 
 constexpr uint32_t SAMPLE_INTERVAL_MS = 1000;

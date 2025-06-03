@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.30)
 project(alprog_finpro_kelompok_iman)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(server
         server/src/main.cpp)
@@ -9,8 +11,9 @@ add_executable(server
 
 add_executable(client
         client/src/main.cpp
-        client/src/perf_counter/enumerate_processes.cpp
-        client/src/perf_counter/browse_performance_counters.cpp
-        client/src/perf_counter/write_performance_data.cpp)
+        client/src/PerformanceMonitor.cpp
+)
+
+target_include_directories(client PRIVATE client/include)
 
 target_link_libraries(client PRIVATE -lpdh)
