@@ -7,6 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(server
         server/src/main.cpp
+        server/src/ServerCLI.cpp
         server/include/ServerCLI.h)
 
 
@@ -17,5 +18,7 @@ add_executable(client
 )
 
 target_include_directories(client PRIVATE client/include)
+
+target_include_directories(server PRIVATE server/include)
 
 target_link_libraries(client PRIVATE -lpdh)
