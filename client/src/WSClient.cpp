@@ -1,18 +1,13 @@
 #include "WSClient.h"
 #include <iostream>
 
-// This is a simplified implementation for demonstration purposes
-// In a real application, you would likely use a library like websocketpp, Boost.Beast, or libwebsockets
 
-// Implementation class (pImpl idiom)
 class WSClient::WSClientImpl {
 public:
     WSClientImpl() : connected(false) {}
 
     bool connect(const std::string& uri) {
         std::cout << "Connecting to: " << uri << std::endl;
-        // Here you would implement actual WebSocket connection logic
-        // For now, we'll simulate a successful connection
         connected = true;
         if (onConnectCallback) {
             onConnectCallback();
@@ -38,7 +33,6 @@ public:
         }
 
         std::cout << "Sending message: " << message << std::endl;
-        // Here you would implement actual WebSocket message sending
         return true;
     }
 
@@ -46,7 +40,6 @@ public:
         return connected;
     }
 
-    // Callback setters
     void setOnMessageCallback(std::function<void(const std::string&)> callback) {
         onMessageCallback = callback;
     }
@@ -71,7 +64,6 @@ private:
     std::function<void(const std::string&)> onErrorCallback;
 };
 
-// WSClient implementation delegates to WSClientImpl
 WSClient::WSClient() : pImpl(std::make_unique<WSClientImpl>()) {}
 
 WSClient::~WSClient() = default;

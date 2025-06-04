@@ -12,7 +12,7 @@ add_executable(server
 add_executable(client
         client/src/main.cpp
         client/src/PerformanceMonitor.cpp
-        client/include/MonitoredPdhCounterData.h
+        client/src/WSClient.cpp
 )
 
 target_include_directories(client PRIVATE client/include)
