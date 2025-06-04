@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(server
-        server/src/main.cpp)
+        server/src/main.cpp
+        server/include/ServerCLI.h)
 
 
 add_executable(client
