@@ -40,7 +40,7 @@ bool PerformanceMonitor::initialize() {
         std::cout << "Warn: PerformanceMonitor does not have any counters" << std::endl;
     }
 
-    bool added_counter  = false;
+    bool added_counter = false;
     for (auto &counter: this->pdh_counters_) {
         pdh_status = PdhAddCounterW(this->hQuery_, counter.pdh_counter_path.c_str(), 0, &counter.hCounter);
         if (pdh_status != ERROR_SUCCESS) {
@@ -62,7 +62,8 @@ bool PerformanceMonitor::initialize() {
     this->is_initialized_ = true;
     std::cout << "PerformanceMonitor initialized successfully." << std::endl;
     if (!this->pdh_counters_.empty() && !added_counter) {
-        std::cerr << "Warning: PerformanceMonitor initialized, but no defined counters were added successfully." << std::endl;
+        std::cerr << "Warning: PerformanceMonitor initialized, but no defined counters were added successfully." <<
+                std::endl;
     }
     return true;
 }
@@ -91,12 +92,15 @@ bool PerformanceMonitor::collect_pdh_counter_data() {
     }
 
     auto pdh_status = PdhCollectQueryData(this->hQuery_);
+    auto current_sample_time = std::chrono::system_clock::now();
+
     if (pdh_status != ERROR_SUCCESS) {
         std::cerr << "PdhCollectQueryData failed with 0x" << std::hex << pdh_status << std::endl;
         return false;
     }
 
     for (auto &counter: this->pdh_counters_) {
+        counter.timestamp = current_sample_time;
         PDH_FMT_COUNTERVALUE DisplayValue;
         DWORD CounterType;
 
@@ -129,6 +133,17 @@ void PerformanceMonitor::set_callback(
         return;
     }
     this->callback_fn_ = callback_fn_;
+}
+
+std::vector<MonitoredPdhCounterData> PerformanceMonitor::get_current_snapshot() const {
+    if (!this->is_initialized_) {
+        std::cerr <<
+                "Performance Monitor is uninitialized, unable to get snapshot" << std::endl;
+        return {};
+    }
+
+    std::lock_guard lock(this->pdh_counter_mutex_);
+    return this->pdh_counters_;
 }
 
 void PerformanceMonitor::start_monitoring() {
@@ -170,8 +185,7 @@ void PerformanceMonitor::monitoring_loop() {
 
 
         if (this->callback_fn_ != nullptr) {
-            std::vector<MonitoredPdhCounterData> snapshot_pdh_counters;
-            {
+            std::vector<MonitoredPdhCounterData> snapshot_pdh_counters; {
                 std::lock_guard lock(this->pdh_counter_mutex_);
                 snapshot_pdh_counters = this->pdh_counters_;
             }
@@ -179,7 +193,6 @@ void PerformanceMonitor::monitoring_loop() {
             this->callback_fn_(snapshot_pdh_counters);
         }
     }
-
 }
 
 PerformanceMonitor::~PerformanceMonitor() {

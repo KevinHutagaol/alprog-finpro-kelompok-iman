@@ -30,11 +30,9 @@ public:
 
     void stop_monitoring();
 
-
     void set_callback(const std::function<void(const std::vector<MonitoredPdhCounterData> &)> &callback_fn_);
 
-
-    [[nodiscard]] const std::vector<MonitoredPdhCounterData> &get_current_snapshot() const;
+    [[nodiscard]] std::vector<MonitoredPdhCounterData> get_current_snapshot() const;
 
     ~PerformanceMonitor();
 
@@ -42,7 +40,6 @@ private:
     void monitoring_loop();
 
     bool collect_pdh_counter_data();
-
 
     std::function<void(const std::vector<MonitoredPdhCounterData> &)> callback_fn_;
 
