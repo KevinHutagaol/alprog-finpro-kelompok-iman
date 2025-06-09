@@ -83,8 +83,8 @@ void handleClient(SOCKET clientSocket) {
 int main() {
     WSADATA wsaData;
     SOCKET serverSocket, clientSocket;
-    struct sockaddr_in serverAddr;
-    struct sockaddr_in clientAddr;
+    struct sockaddr_in serverAddr{};
+    struct sockaddr_in clientAddr{};
     int clientAddrLen;
 
     std::cout << "[SERVER] Memulai Performance Logger Server..." << std::endl;
