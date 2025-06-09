@@ -7,7 +7,7 @@
 #include <thread>
 
 #include "Metric.h"
-#include "MetricScore.h"
+#include "MetricStore.h"
 
 class CLI {
 public:
