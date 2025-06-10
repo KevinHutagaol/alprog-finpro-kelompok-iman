@@ -13,11 +13,14 @@ Set(FETCHCONTENT_QUIET FALSE)
 FetchContent_Declare(
         Boost
         URL https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.7z
-        USES_TERMINAL_DOWNLOAD TRUE
-        GIT_PROGRESS TRUE
-        DOWNLOAD_NO_EXTRACT FALSE
 )
 FetchContent_MakeAvailable(Boost)
+include(FetchContent)
+FetchContent_Declare(
+        nlohmann_json
+        URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
 add_executable(server
         server/src/main.cpp
@@ -34,7 +37,7 @@ target_include_directories(client PRIVATE client/include)
 
 target_include_directories(server PRIVATE server/include)
 
-target_link_libraries(client PRIVATE -lpdh -lws2_32 Boost::beast Boost::asio)
+target_link_libraries(client PRIVATE -lpdh -lws2_32 Boost::beast Boost::asio nlohmann_json::nlohmann_json)
 
-target_link_libraries(server PRIVATE -lws2_32 -lwsock32 Boost::beast Boost::asio)
+target_link_libraries(server PRIVATE -lws2_32 -lwsock32 Boost::beast Boost::asio nlohmann_json::nlohmann_json)
 
