@@ -98,3 +98,22 @@ void Session::do_write(boost::asio::yield_context yield) {
 boost::asio::ip::tcp::endpoint Session::get_remote_endpoint() const {
     return beast::get_lowest_layer(ws_).socket().remote_endpoint();
 }
+    beast::error_code ec;
+
+    // While there are messages in the queue...
+    while (!write_queue_.empty()) {
+        ws_.text(true);
+        ws_.async_write(net::buffer(*write_queue_.front()), yield[ec]);
+
+        if (ec) {
+            std::cerr << "Write failed: " << ec.message() << std::endl;
+            write_queue_.clear();
+            return;
+        }
+
+        write_queue_.pop_front();}
+}
+
+boost::asio::ip::tcp::endpoint Session::get_remote_endpoint() const {
+    return beast::get_lowest_layer(ws_).socket().remote_endpoint();
+}
