@@ -5,53 +5,63 @@
 #include <string>
 #include <atomic>
 #include <thread>
+#include <mutex>
+#include <map>
+#include <memory>
+#include <list>
 
 #include "Metric.h"
 #include "MetricStore.h"
 
-class CLI {
+class ServerCLI {
 public:
-    CLI();
-    ~CLI();
+    ServerCLI(std::map<std::string, std::shared_ptr<MetricStore> > &client_stores, std::atomic<bool> &shutdown_flag);
+
+    ~ServerCLI();
 
     void run();
 
+    void stop();
+
+    void postMessage(const std::string &message);
+
 private:
-    void processInputLine(const std::string& line);
-    void displayPrompt() const;
+    enum class View { COMMAND, REALTIME };
+
+    std::atomic<View> current_view_{View::COMMAND};
+    std::thread cli_thread_;
+    std::atomic<bool> is_running_{false};
+
+    std::map<std::string, std::shared_ptr<MetricStore> > &client_stores_;
+    std::atomic<bool> &app_shutdown_flag_;
+
+    std::list<std::string> realtime_queue_;
+    std::mutex queue_mutex_;
+
+    void cliLoop();
+
+    void runCommandView();
+
+    void runRealtimeView();
+
+    void processCommand(const std::string &line);
+
+    void printPrompt() const;
+
     void printHelp() const;
 
-    void handleStartMonitoring(const std::vector<std::string>& args);
-    void handleStopMonitoring();
+    void clearConsoleLine() const;
 
-    void handlePrintSortedByCpu(const std::vector<std::string>& args);
+    void handleListClients() const;
 
-    void handlePrintSortedByMemory(const std::vector<std::string>& args);
+    void handleShowClientData(const std::vector<std::string> &args) const;
 
-    void handleSaveMetricsBinary(const std::vector<std::string>& args);
+    void handleExportClientData(const std::vector<std::string> &args) const;
 
-    void handleExportMetricsJson(const std::vector<std::string>& args);
+    void handleSwitchView(const std::vector<std::string> &args);
 
-    void handlePrintAllClients() const;
-
-    void handlePrintAllMetrics() const;
-
-    void periodicMonitoringTask();
-
-    void printMetricsTable(const std::vector<Metric>& metricsToPrint) const;
-
-    void printSingleMetric(const Metric& metric) const;
-
-    MetricStore& store;
-
-    std::thread monitorThread;
-    std::atomic<bool> monitoringActive;
-    std::atomic<int> monitorIntervalSeconds;
-
-    mutable std::mutex outputMutex;
+    void handleExit();
 };
 
 
-
 #endif //SERVERCLI_H
-
