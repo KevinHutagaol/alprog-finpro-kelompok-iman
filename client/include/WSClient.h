@@ -20,16 +20,17 @@ public:
 
     [[nodiscard]] bool isConnected() const;
 
-    void setOnMessageCallback(std::function<void(const std::string &)> on_message_handler);
+    void setOnMessageCallback(std::function<void(const std::string &)> on_message_callback);
 
-    void setOnConnectCallback(std::function<void(const boost::beast::error_code &)> on_connect_handler);
+    void setOnConnectCallback(std::function<void(const boost::beast::error_code &)> on_connect_callback);
 
-    void setOnSendCallback(std::function<void(const boost::beast::error_code &)> on_send_handler);
+    void setOnSendCallback(std::function<void(const boost::beast::error_code &)> on_send_callback);
 
 private:
     std::function<void(const std::string &)> on_message_callback_;
     std::function<void(const boost::beast::error_code &)> on_connect_callback_;
     std::function<void(const boost::beast::error_code &)> on_send_callback_;
+    std::mutex callbacks_mutex_;
 
     std::string host_;
     std::string port_;
