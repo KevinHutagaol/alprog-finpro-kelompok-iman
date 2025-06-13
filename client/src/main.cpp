@@ -117,7 +117,7 @@ int main(int argc, char *argv[]) {
     });
 
     boost::asio::signal_set signals(ioc, SIGINT, SIGTERM);
-    signals.async_wait([&](boost::system::error_code /ec/, int /signum/) {
+    signals.async_wait([&](boost::system::error_code /*ec*/, int /*signum*/) {
         std::cout << "\nSignal received. Initiating shutdown..." << std::endl;
         pdh_monitor.stop_monitoring();
         if (client.isConnected()) {
