@@ -26,7 +26,8 @@ add_executable(server
         server/src/main.cpp
         server/src/ServerCLI.cpp
         server/src/WSServer.cpp
-        server/src/Session.cpp)
+        server/src/Session.cpp
+        server/src/MetricStore.cpp)
 
 add_executable(client
         client/src/main.cpp
