@@ -67,8 +67,8 @@ target_link_libraries(server PRIVATE
         Boost::asio
         Boost::beast
         Boost::system
-        Boost::coroutine # This is important for yield_context
-        Boost::thread    # If Boost.Thread is still win32, this might be needed, or it might conflict
+        Boost::coroutine
+        Boost::thread
         nlohmann_json::nlohmann_json
 )
 
