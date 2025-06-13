@@ -5,17 +5,28 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(BOOST_INCLUDE_LIBRARIES asio beast)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mthreads")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -frtti")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions")
+#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
+
+
+#set(BOOST_INCLUDE_LIBRARIES asio beast system coroutine)
 set(BOOST_ENABLE_CMAKE ON)
+
+find_package(Threads REQUIRED)
+
+add_compile_definitions(BOOST_THREAD_POSIX)
 
 include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
 FetchContent_Declare(
         Boost
         URL https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.7z
+        CMAKE_ARGS -DBOOST_THREAD_USE_POSIX_MUTEX=ON
 )
 FetchContent_MakeAvailable(Boost)
-include(FetchContent)
+
 FetchContent_Declare(
         nlohmann_json
         URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz
@@ -36,10 +47,28 @@ add_executable(client
 )
 
 target_include_directories(client PRIVATE client/include)
-
 target_include_directories(server PRIVATE server/include)
 
-target_link_libraries(client PRIVATE -lpdh -lws2_32 Boost::beast Boost::asio nlohmann_json::nlohmann_json)
+target_link_libraries(client PRIVATE
+        pdh
+        ws2_32
+        Boost::beast
+        Boost::asio
+        Boost::system
+        Boost::coroutine
+        nlohmann_json::nlohmann_json
+)
 
-target_link_libraries(server PRIVATE -lws2_32 -lwsock32 Boost::beast Boost::asio nlohmann_json::nlohmann_json)
+target_link_libraries(server PRIVATE
+        Mswsock
+        ws2_32
+        wsock32
+        Threads::Threads
+        Boost::asio
+        Boost::beaststuff
+        Boost::system
+        Boost::coroutine # This is important for yield_context
+        Boost::thread    # If Boost.Thread is still win32, this might be needed, or it might conflict
+        nlohmann_json::nlohmann_json
+)
 

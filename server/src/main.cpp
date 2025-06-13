@@ -2,148 +2,130 @@
 #include <string>
 #include <vector>
 #include <thread>
-#include <cstring>
-#include <chrono>
+#include <map>
+#include <mutex>
+#include <atomic>
+#include <memory>
+#include <csignal>
 
-#include <winsock2.h>
-#include <ws2tcpip.h>
-
-#include "Metric.h"
-#include "MetricStore.h"
 #include "WSServer.h"
+#include "MetricStore.h"
+#include "ClientData.h"
+#include "ServerCLI.h"
 
-#pragma comment(lib, "Ws2_32.lib")
+#include <nlohmann/json.hpp>
+#include <boost/asio/signal_set.hpp>
 
-const int PORT = 12345;
-const int MAX_PENDING_CONNECTIONS = 5;
-const int BUFFER_SIZE = 1024;
+using json = nlohmann::json;
+namespace net = boost::asio;
 
+std::map<std::string, std::shared_ptr<MetricStore>> g_client_stores;
+std::mutex g_stores_mutex;
+std::atomic<bool> g_shutdown_flag{false};
 
-Metric parseMetricData(const std::string& data, const std::string& client_ip, const std::string& hostname) {
-    long long timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                  std::chrono::system_clock::now().time_since_epoch()
-                              ).count();
-
-    double cpu_usage = 0.0;
-    double memory_usage = 0.0;
-
-    try {
-        size_t cpu_pos = data.find("CPU:");
-        size_t mem_pos = data.find("MEM:");
-
-        if (cpu_pos != std::string::npos && mem_pos != std::string::npos && cpu_pos < mem_pos) {
-            cpu_usage = std::stod(data.substr(cpu_pos + 4, mem_pos - (cpu_pos + 4)));
-            memory_usage = std::stod(data.substr(mem_pos + 4));
-        } else {
-            std::cout << "[SERVER] Peringatan: Format data tidak dikenali: " << data << std::endl;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[SERVER ERROR] Gagal parse data: " << e.what() << " untuk data: " << data << std::endl;
-    }
-    return Metric(timestamp, client_ip, hostname, cpu_usage, memory_usage);
+std::chrono::system_clock::time_point parse_iso8601(const std::string& iso_str) {
+    std::tm tm = {};
+    std::stringstream ss(iso_str);
+    ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%SZ");
+    return std::chrono::system_clock::from_time_t(std::mktime(&tm));
 }
 
-void handleClient(SOCKET clientSocket) {
-    char buffer[BUFFER_SIZE];
-    int bytesReceived;
-
-    sockaddr_in clientAddr;
-    int clientAddrLen = sizeof(clientAddr);
-    getpeername(clientSocket, (sockaddr*)&clientAddr, &clientAddrLen);
-    char clientIp[INET_ADDRSTRLEN];
-    InetNtopA(AF_INET, &(clientAddr.sin_addr), clientIp, INET_ADDRSTRLEN);
-    int clientPort = ntohs(clientAddr.sin_port);
-
-    std::string clientHostname = "unknown_hostname";
-
-    std::cout << "[SERVER] Klien terhubung dari " << clientIp << ":" << clientPort << " (Socket: " << clientSocket << ")" << std::endl;
-
-    while ((bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0)) > 0) {
-        buffer[bytesReceived] = '\0';
-        std::string receivedData(buffer);
-
-        std::cout << "[SERVER] Menerima dari " << clientIp << ":" << clientPort << ": " << receivedData << std::endl;
-
-        Metric newMetric = parseMetricData(receivedData, std::string(clientIp), clientHostname);
-
-        MetricStore::getInstance().saveMetric(newMetric);
-
-        const char* response = "ACK: Data diterima!\n";
-        send(clientSocket, response, strlen(response), 0);
-    }
-
-    if (bytesReceived == 0) {
-        std::cout << "[SERVER] Klien terputus: " << clientIp << ":" << clientPort << " (Socket: " << clientSocket << ")" << std::endl;
-    } else {
-        std::cerr << "[SERVER ERROR] Gagal menerima data dari " << clientIp << ":" << clientPort << ". Kode Error: " << WSAGetLastError() << std::endl;
-    }
-
-    closesocket(clientSocket);
-}
 
 int main() {
-    WSADATA wsaData;
-    SOCKET serverSocket, clientSocket;
-    struct sockaddr_in serverAddr{};
-    struct sockaddr_in clientAddr{};
-    int clientAddrLen;
+    std::cout << "--- WebSocket Performance Monitor Server ---\n";
+    unsigned short port = 6969;
+    int threads = 4;
+    std::cout << "\nConfiguration set:" << std::endl;
+    std::cout << "  - Listening on Port: " << port << std::endl;
+    std::cout << "  - Worker Threads:    " << threads << std::endl;
+    std::cout << "-------------------------------------------\n" << std::endl;
 
-    std::cout << "[SERVER] Memulai Performance Logger Server..." << std::endl;
+    try {
+        net::io_context ioc{threads};
+        WSServer server(ioc, port);
+        ServerCLI cli(g_client_stores, g_shutdown_flag);
 
-    MetricStore::getInstance().loadAllMetricsFromBinaryFile("metrics.bin");
 
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "[SERVER ERROR] WSAStartup gagal. Kode Error: " << WSAGetLastError() << std::endl;
-        return 1;
-    }
-    std::cout << "[SERVER] Winsock berhasil diinisialisasi." << std::endl;
+        server.setOnConnectCallback([](std::shared_ptr<Session> session) {
+            std::cout << "\n[Server] Client connected: " << session->get_remote_endpoint() << std::endl;
+        });
 
-    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket == INVALID_SOCKET) {
-        std::cerr << "[SERVER ERROR] Gagal membuat socket. Kode Error: " << WSAGetLastError() << std::endl;
-        WSACleanup();
-        return 1;
-    }
-    std::cout << "[SERVER] Socket server berhasil dibuat." << std::endl;
+        server.setOnDisconnectCallback([](std::shared_ptr<Session> /*session*/) {
+            std::cout << "[Server] Client disconnected." << std::endl;
+        });
 
-    char optval = 1;
-    if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == SOCKET_ERROR) {
-        std::cerr << "[SERVER ERROR] setsockopt(SO_REUSEADDR) gagal. Kode Error: " << WSAGetLastError() << std::endl;
-    }
+        server.setOnMessageCallback([&cli](std::shared_ptr<Session> session, const std::string& msg) {
+            try {
+                json data = json::parse(msg);
 
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;
-    serverAddr.sin_port = htons(PORT);
+                ClientData received_data;
+                received_data.clientId = data.at("clientId").get<std::string>();
+                received_data.clientIp = session->get_remote_endpoint().address().to_string();
+                received_data.timestamp = parse_iso8601(data.at("timestamp").get<std::string>());
+                received_data.metrics = data.at("counters").get<std::vector<MetricDataPoint>>();
 
-    if (bind(serverSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "[SERVER ERROR] Gagal bind socket ke port " << PORT << ". Kode Error: " << WSAGetLastError() << std::endl;
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
-    }
-    std::cout << "[SERVER] Socket berhasil di-bind ke port " << PORT << std::endl;
+                std::shared_ptr<MetricStore> client_store;
+                {
+                    std::lock_guard<std::mutex> lock(g_stores_mutex);
+                    auto it = g_client_stores.find(received_data.clientId);
+                    if (it == g_client_stores.end()) {
+                        client_store = std::make_shared<MetricStore>();
+                        g_client_stores[received_data.clientId] = client_store;
+                    } else {
+                        client_store = it->second;
+                    }
+                }
 
-    if (listen(serverSocket, MAX_PENDING_CONNECTIONS) == SOCKET_ERROR) {
-        std::cerr << "[SERVER ERROR] Listen gagal. Kode Error: " << WSAGetLastError() << std::endl;
-        closesocket(serverSocket);
-        WSACleanup();
-        return 1;
-    }
-    std::cout << "[SERVER] Server mendengarkan di port " << PORT << "..." << std::endl;
+                client_store->addData(received_data);
 
-    while (true) {
-        clientAddrLen = sizeof(clientAddr);
-        clientSocket = accept(serverSocket, (sockaddr*)&clientAddr, &clientAddrLen);
-        if (clientSocket == INVALID_SOCKET) {
-            std::cerr << "[SERVER ERROR] Terima koneksi gagal. Kode Error: " << WSAGetLastError() << std::endl;
-            continue;
+                std::stringstream ss;
+                ss << "[Real-time] Data received from " << received_data.clientId
+                   << " (" << received_data.metrics.size() << " metrics)";
+                cli.postMessage(ss.str());
+
+            } catch (const std::exception& e) {
+                std::cerr << "[Error] Failed to process message: " << e.what() << std::endl;
+            }
+        });
+
+
+        boost::asio::signal_set signals(ioc, SIGINT, SIGTERM);
+        signals.async_wait([&](boost::system::error_code /*ec*/, int /*signum*/) {
+            std::cout << "\nSignal received. Initiating shutdown..." << std::endl;
+            g_shutdown_flag = true;
+        });
+
+        std::thread shutdown_checker([&ioc]() {
+            while (!g_shutdown_flag) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+            }
+            ioc.stop();
+        });
+
+
+        server.run();
+        cli.run();
+
+        std::cout << ">>> Server is running. Type 'help' for commands. Press Ctrl+C to exit. <<<\n" << std::endl;
+
+        std::vector<std::thread> v;
+        v.reserve(threads - 1);
+        for(auto i = threads - 1; i > 0; --i) {
+            v.emplace_back([&ioc] { ioc.run(); });
         }
+        ioc.run();
 
-        std::thread(handleClient, clientSocket).detach();
+        std::cout << "Asio event loop stopped. Waiting for threads to join..." << std::endl;
+        for(auto& t : v) {
+            t.join();
+        }
+        shutdown_checker.join();
+
+    } catch (const std::exception& e) {
+        std::cerr << "Fatal Error: " << e.what() << std::endl;
+        return 1;
     }
 
-    closesocket(serverSocket);
-    WSACleanup();
-    std::cout << "[SERVER] Server berhenti." << std::endl;
+    std::cout << "Shutdown complete." << std::endl;
     return 0;
 }
