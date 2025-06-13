@@ -1,8 +1,6 @@
 #ifndef SESSION_H
 #define SESSION_H
 
-
-
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -16,12 +14,21 @@ class WSServer;
 
 class Session : public std::enable_shared_from_this<Session> {
 public:
-    void send(const std::string& message);
+    static std::shared_ptr<Session> create(boost::asio::ip::tcp::socket &&socket, WSServer &server) {
+        struct make_shared_enabler : public Session {
+            make_shared_enabler(boost::asio::ip::tcp::socket &&s, WSServer &serv)
+                : Session(std::move(s), serv) {
+            }
+        };
+        return std::make_shared<make_shared_enabler>(std::move(socket), server);
+    }
+
+    void send(const std::string &message);
 
 private:
     friend class WSServer;
 
-    Session(boost::asio::ip::tcp::socket&& socket, WSServer& server);
+    Session(boost::asio::ip::tcp::socket &&socket, WSServer &server);
 
     void run(boost::asio::yield_context yield);
 
@@ -31,11 +38,10 @@ private:
 
     boost::beast::websocket::stream<boost::beast::tcp_stream> ws_;
     boost::beast::flat_buffer buffer_;
-    std::list<std::shared_ptr<const std::string>> write_queue_;
+    std::list<std::shared_ptr<const std::string> > write_queue_;
 
-    WSServer& server_;
+    WSServer &server_;
 };
-
 
 
 #endif //SESSION_H
