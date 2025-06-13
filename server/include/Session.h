@@ -25,8 +25,12 @@ public:
 
     void send(const std::string &message);
 
+    boost::asio::ip::tcp::endpoint get_remote_endpoint() const;
+
 private:
     friend class WSServer;
+
+    boost::beast::websocket::stream<boost::beast::tcp_stream> ws_;
 
     Session(boost::asio::ip::tcp::socket &&socket, WSServer &server);
 
@@ -36,7 +40,6 @@ private:
 
     void do_write(boost::asio::yield_context yield);
 
-    boost::beast::websocket::stream<boost::beast::tcp_stream> ws_;
     boost::beast::flat_buffer buffer_;
     std::list<std::shared_ptr<const std::string> > write_queue_;
 
