@@ -46,9 +46,9 @@ private:
 
     void processCommand(const std::string &line);
 
-    void printPrompt() const;
+    static void printPrompt();
 
-    void printHelp() const;
+    static void printHelp();
 
     void clearConsoleLine() const;
 
