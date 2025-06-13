@@ -16,14 +16,14 @@ set(BOOST_ENABLE_CMAKE ON)
 
 find_package(Threads REQUIRED)
 
-add_compile_definitions(BOOST_THREAD_POSIX)
+#add_compile_definitions(BOOST_THREAD_POSIX)
 
 include(FetchContent)
 Set(FETCHCONTENT_QUIET FALSE)
 FetchContent_Declare(
         Boost
         URL https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.7z
-        CMAKE_ARGS -DBOOST_THREAD_USE_POSIX_MUTEX=ON
+#        CMAKE_ARGS -DBOOST_THREAD_USE_POSIX_MUTEX=ON
 )
 FetchContent_MakeAvailable(Boost)
 
@@ -65,7 +65,7 @@ target_link_libraries(server PRIVATE
         wsock32
         Threads::Threads
         Boost::asio
-        Boost::beaststuff
+        Boost::beast
         Boost::system
         Boost::coroutine # This is important for yield_context
         Boost::thread    # If Boost.Thread is still win32, this might be needed, or it might conflict
