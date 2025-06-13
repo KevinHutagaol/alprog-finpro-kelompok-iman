@@ -72,3 +72,23 @@ target_link_libraries(server PRIVATE
         nlohmann_json::nlohmann_json
 )
 
+set(MY_EXECUTABLES
+        server
+        client
+)
+
+foreach (MY_EXE ${MY_EXECUTABLES})
+    set_target_properties(${MY_EXE} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+
+    if (CMAKE_CONFIGURATION_TYPES) # For multi-config generators like Visual Studio, Xcode
+        foreach (CONFIG ${CMAKE_CONFIGURATION_TYPES})
+            string(TOUPPER ${CONFIG} CONFIG_UPPER)
+            set_target_properties(${MY_EXE} PROPERTIES
+                    "RUNTIME_OUTPUT_DIRECTORY_${CONFIG_UPPER}" "${CMAKE_BINARY_DIR}"
+            )
+        endforeach ()
+    else ()
+    endif ()
+endforeach ()
