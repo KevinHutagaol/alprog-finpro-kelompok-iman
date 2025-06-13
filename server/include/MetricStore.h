@@ -15,6 +15,8 @@ public:
 
     void print() const;
 
+    nlohmann::json exportToJson() const;
+
 private:
     std::map<std::string, std::vector<TimeSeriesPoint>> time_series_data_;
 

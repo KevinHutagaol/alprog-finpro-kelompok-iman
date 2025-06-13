@@ -73,6 +73,5 @@ void WSServer::leave(std::shared_ptr<Session> session) {
         sessions_.remove(session);
     }
     if (on_disconnect_callback_) {
-        on_disconnect_callback_(session);
-    }
+        on_disconnect_callback_(session);}
 }
