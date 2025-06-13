@@ -17,12 +17,16 @@ void WSClient::connect() {
 
         const auto results = this->resolver_.async_resolve(this->host_, this->port_, yield[ec]);
         if (ec) {
+            std::lock_guard<std::mutex> lock(callbacks_mutex_);
+            on_connect_callback_(ec);
             return fail(ec, "resolve");
         }
         boost::beast::get_lowest_layer(this->ws_).expires_after(std::chrono::seconds(30));
 
         const auto ep = boost::beast::get_lowest_layer(this->ws_).async_connect(results, yield[ec]);
         if (ec) {
+            std::lock_guard<std::mutex> lock(callbacks_mutex_);
+            on_connect_callback_(ec);
             return fail(ec, "connect");
         }
 
@@ -43,6 +47,8 @@ void WSClient::connect() {
 
         this->ws_.async_handshake(host_with_port, "/", yield[ec]);
         if (ec) {
+            std::lock_guard<std::mutex> lock(callbacks_mutex_);
+            on_connect_callback_(ec);
             return fail(ec, "handshake");
         }
 
@@ -51,6 +57,7 @@ void WSClient::connect() {
         read_loop();
 
         if (this->on_connect_callback_) {
+            std::lock_guard<std::mutex> lock(callbacks_mutex_);
             this->on_connect_callback_({});
         }
     });
@@ -61,12 +68,13 @@ void WSClient::disconnect() {
         return;
     }
 
+
     // change to ioc_ thread (which is created from connect fn)
     boost::asio::post(this->ioc_, [this]() {
         this->ws_.async_close(boost::beast::websocket::close_code::normal, [this](auto ec) {
             this->is_connected_.store(false);
             if (ec) {
-                return fail(ec, "close");
+                if (ec && ec != boost::asio::error::not_connected) { return fail(ec, "close"); }
             }
         });
     });
@@ -76,15 +84,18 @@ void WSClient::send(const std::string &message) {
     const auto shared_message = std::make_shared<std::string>(message);
 
     boost::asio::post(this->ioc_, [this, shared_message]() {
-        this->ws_.async_write(*shared_message, [this](auto ec, auto) {
-            if (this->on_send_callback_) {
-                on_send_handler_(ec);
-            }
+        this->ws_.async_write(
+            boost::asio::buffer(*shared_message),
+            [this, shared_message](auto ec, auto) {
+                if (this->on_send_callback_) {
+                    std::lock_guard<std::mutex> lock(callbacks_mutex_);
+                    on_send_callback_(ec);
+                }
 
-            if (ec) {
-                return fail(ec, "write");
-            }
-        });
+                if (ec) {
+                    return fail(ec, "write");
+                }
+            });
     });
 }
 
@@ -97,11 +108,22 @@ void WSClient::read_loop() {
             std::cout << "Connection closed by peer." << std::endl;
             return;
         }
+
         if (ec) {
             return fail(ec, "read");
         }
+
+        std::function<void(const std::string &)> handler_copy; {
+            std::lock_guard<std::mutex> lock(callbacks_mutex_);
+            handler_copy = on_message_callback_;
+        }
+
+        if (handler_copy) {
+            handler_copy(boost::beast::buffers_to_string(buffer_.data()));
+        }
+
         if (this->on_message_callback_) {
-            this->on_message_callback_(boost::beast::buffers_to_string(this->buffer_.data()));
+            handler_copy(boost::beast::buffers_to_string(this->buffer_.data()));
         }
 
         this->buffer_.consume(this->buffer_.size());
@@ -115,16 +137,19 @@ bool WSClient::isConnected() const {
     return this->is_connected_.load();
 }
 
-void WSClient::setOnMessageCallback(std::function<void(const std::string &)> on_message_handler) {
-    this->on_message_callback_ = std::move(on_message_handler);
+void WSClient::setOnMessageCallback(std::function<void(const std::string &)> on_message_callback) {
+    std::lock_guard<std::mutex> lock(callbacks_mutex_);
+    this->on_message_callback_ = std::move(on_message_callback);
 }
 
-void WSClient::setOnConnectCallback(std::function<void(const boost::beast::error_code &)> on_connect_handler) {
-    this->on_connect_callback_ = std::move(on_connect_handler);
+void WSClient::setOnConnectCallback(std::function<void(const boost::beast::error_code &)> on_connect_callback) {
+    std::lock_guard<std::mutex> lock(callbacks_mutex_);
+    this->on_connect_callback_ = std::move(on_connect_callback);
 }
 
-void WSClient::setOnSendCallback(std::function<void(const boost::beast::error_code &)> on_send_handler) {
-    this->on_send_callback_ = std::move(on_send_handler);
+void WSClient::setOnSendCallback(std::function<void(const boost::beast::error_code &)> on_send_callback) {
+    std::lock_guard<std::mutex> lock(callbacks_mutex_);
+    this->on_send_callback_ = std::move(on_send_callback);
 }
 
 void WSClient::fail(const boost::beast::error_code &ec, char const *what) {
