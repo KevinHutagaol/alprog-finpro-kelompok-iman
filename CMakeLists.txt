@@ -25,7 +25,8 @@ FetchContent_MakeAvailable(nlohmann_json)
 add_executable(server
         server/src/main.cpp
         server/src/ServerCLI.cpp
-        server/include/ServerCLI.h)
+        server/src/WSServer.cpp
+        server/src/Session.cpp)
 
 add_executable(client
         client/src/main.cpp

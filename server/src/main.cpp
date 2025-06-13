@@ -10,6 +10,7 @@
 
 #include "Metric.h"
 #include "MetricStore.h"
+#include "WSServer.h"
 
 #pragma comment(lib, "Ws2_32.lib")
 
